@@ -1,6 +1,11 @@
 package com.example.studysync.data
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "class_sessions")
 data class ClassSession(
-    val id: String,
+    @PrimaryKey val id: String,
     val subject: String,
     val teacher: String,
     val room: String,
@@ -15,8 +20,9 @@ enum class DayOfWeek(val displayVi: String, val short: String) {
     THURSDAY("Thứ 5", "T5"), FRIDAY("Thứ 6", "T6"), SATURDAY("Thứ 7", "T7"), SUNDAY("Chủ nhật", "CN")
 }
 
+@Entity(tableName = "exam_reminders")
 data class ExamReminder(
-    val id: String,
+    @PrimaryKey val id: String,
     val subject: String,
     val examType: ExamType,
     val date: String,
