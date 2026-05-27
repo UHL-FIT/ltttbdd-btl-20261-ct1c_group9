@@ -58,7 +58,7 @@ fun StudySyncNavGraph(navController: NavHostController) {
         }
 
         composable(Screen.Exams.route) {
-            ExamScreen(navController = navController)
+            ExamScreen(navController = navController, viewModel = viewModel)
         }
 
         composable(Screen.Manage.route) {
