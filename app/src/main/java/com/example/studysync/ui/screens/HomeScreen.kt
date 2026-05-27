@@ -30,6 +30,8 @@ fun HomeScreen(
     exams: List<ExamReminder>,
     onNavigateToSchedule: () -> Unit,
     onNavigateToExams: () -> Unit,
+    onNavigateToManage: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -44,7 +46,9 @@ fun HomeScreen(
             item {
                 QuickActionsRow(
                     onScheduleClick = onNavigateToSchedule,
-                    onExamsClick = onNavigateToExams
+                    onExamsClick = onNavigateToExams,
+                    onManageClick = onNavigateToManage,
+                    onAboutClick = onNavigateToAbout
                 )
             }
             // ... (keep rest of items)
@@ -102,28 +106,47 @@ fun HomeScreen(
 private fun QuickActionsRow(
     onScheduleClick: () -> Unit,
     onExamsClick: () -> Unit,
+    onManageClick: () -> Unit = {},
+    onAboutClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        QuickActionCard(
-            title    = "Lịch học",
-            subtitle = "Xem thời khóa biểu",
-            icon     = Icons.AutoMirrored.Filled.MenuBook,
-            gradient = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED)),
-            modifier = Modifier.weight(1f),
-            onClick  = onScheduleClick
-        )
-        QuickActionCard(
-            title    = "Nhắc thi",
-            subtitle = "Quản lý kỳ thi",
-            icon     = Icons.Filled.Alarm,
-            gradient = listOf(Color(0xFF0891B2), Color(0xFF0E7490)),
-            modifier = Modifier.weight(1f),
-            onClick  = onExamsClick
-        )
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            QuickActionCard(
+                title    = "Lịch học",
+                subtitle = "Xem thời khóa biểu",
+                icon     = Icons.AutoMirrored.Filled.MenuBook,
+                gradient = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED)),
+                modifier = Modifier.weight(1f),
+                onClick  = onScheduleClick
+            )
+            QuickActionCard(
+                title    = "Nhắc thi",
+                subtitle = "Quản lý kỳ thi",
+                icon     = Icons.Filled.Alarm,
+                gradient = listOf(Color(0xFF0891B2), Color(0xFF0E7490)),
+                modifier = Modifier.weight(1f),
+                onClick  = onExamsClick
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            QuickActionCard(
+                title    = "Nhập liệu",
+                subtitle = "Thêm môn & lịch thi",
+                icon     = Icons.Filled.Edit,
+                gradient = listOf(Color(0xFF16A34A), Color(0xFF15803D)),
+                modifier = Modifier.weight(1f),
+                onClick  = onManageClick
+            )
+            QuickActionCard(
+                title    = "Giới thiệu",
+                subtitle = "Thông tin nhóm",
+                icon     = Icons.Filled.Info,
+                gradient = listOf(Color(0xFFD97706), Color(0xFFB45309)),
+                modifier = Modifier.weight(1f),
+                onClick  = onAboutClick
+            )
+        }
     }
 }
 

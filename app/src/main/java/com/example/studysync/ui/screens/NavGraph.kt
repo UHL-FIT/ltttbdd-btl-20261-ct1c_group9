@@ -7,15 +7,16 @@ import androidx.navigation.compose.composable
 import com.example.studysync.data.*
 
 sealed class Screen(val route: String) {
-    object Home     : Screen("home")
-    object Schedule : Screen("schedule")
-    object Exams    : Screen("exams")
-    object Stats    : Screen("stats")
+    object Home    : Screen("home")
+    object Schedule: Screen("schedule")
+    object Exams   : Screen("exams")
+    object Stats   : Screen("stats")
+    object Manage  : Screen("manage")
+    object About   : Screen("about")
 }
 
 @Composable
 fun StudySyncNavGraph(navController: NavHostController) {
-    // Shared mutable state across screens
     var sessions by remember { mutableStateOf(SampleData.classSessions) }
     var exams    by remember { mutableStateOf(SampleData.examReminders) }
 
@@ -25,24 +26,26 @@ fun StudySyncNavGraph(navController: NavHostController) {
                 sessions = sessions.filter { it.dayOfWeek == DayOfWeek.MONDAY },
                 exams    = exams.sortedBy { it.daysUntil }.take(3),
                 onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
-                onNavigateToExams    = { navController.navigate(Screen.Exams.route) }
+                onNavigateToExams    = { navController.navigate(Screen.Exams.route) },
+                onNavigateToManage   = { navController.navigate(Screen.Manage.route) },
+                onNavigateToAbout    = { navController.navigate(Screen.About.route) }
             )
         }
         composable(Screen.Schedule.route) {
             TimetableScreen(
-                sessions   = sessions,
+                sessions        = sessions,
                 onAddSession    = { sessions = sessions + it },
                 onDeleteSession = { id -> sessions = sessions.filter { it.id != id } },
-                onBack     = { navController.popBackStack() }
+                onBack          = { navController.popBackStack() }
             )
         }
         composable(Screen.Exams.route) {
             ExamScreen(
-                exams     = exams,
+                exams        = exams,
                 onAddExam    = { exams = exams + it },
                 onDeleteExam = { id -> exams = exams.filter { it.id != id } },
                 onViewStats  = { navController.navigate(Screen.Stats.route) },
-                onBack    = { navController.popBackStack() }
+                onBack       = { navController.popBackStack() }
             )
         }
         composable(Screen.Stats.route) {
@@ -50,6 +53,18 @@ fun StudySyncNavGraph(navController: NavHostController) {
                 sessions = sessions,
                 exams    = exams,
                 onBack   = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Manage.route) {
+            ManageScreen(
+                onAddSession = { sessions = sessions + it },
+                onAddExam    = { exams = exams + it },
+                onBack       = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.About.route) {
+            AboutScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }
