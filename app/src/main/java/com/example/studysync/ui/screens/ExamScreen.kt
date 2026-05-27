@@ -69,7 +69,11 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
             }
 
             if (showDialog && selectedExam != null) {
-                ExamDetailDialog(exam = selectedExam!!, onDismiss = { showDialog = false })
+                ExamDetailDialog(
+                    exam = selectedExam!!, 
+                    viewModel = viewModel,
+                    onDismiss = { showDialog = false }
+                )
             }
         }
     }
@@ -142,7 +146,7 @@ private fun IconLabel(icon: ImageVector, text: String) {
 }
 
 @Composable
-fun ExamDetailDialog(exam: ExamReminder, onDismiss: () -> Unit) {
+fun ExamDetailDialog(exam: ExamReminder, viewModel: StudyViewModel, onDismiss: () -> Unit) {
     val color = SubjectColors[exam.colorIndex % SubjectColors.size]
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -179,12 +183,28 @@ fun ExamDetailDialog(exam: ExamReminder, onDismiss: () -> Unit) {
                 }
 
                 Spacer(Modifier.height(32.dp))
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Đóng")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.deleteExam(exam)
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Xóa")
+                    }
+                    
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Đóng")
+                    }
                 }
             }
         }
