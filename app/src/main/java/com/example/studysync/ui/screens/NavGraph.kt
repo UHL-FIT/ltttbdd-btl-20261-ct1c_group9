@@ -47,7 +47,9 @@ fun StudySyncNavGraph(navController: NavHostController) {
                 sessions = todaySessions,
                 exams = upcomingExams,
                 onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
-                onNavigateToExams = { navController.navigate(Screen.Exams.route) }
+                onNavigateToExams = { navController.navigate(Screen.Exams.route) },
+                onNavigateToManage = { navController.navigate(Screen.Manage.route) },
+                onNavigateToAbout = { navController.navigate(Screen.About.route) }
             )
         }
 
@@ -60,7 +62,7 @@ fun StudySyncNavGraph(navController: NavHostController) {
         }
 
         composable(Screen.Manage.route) {
-            ManageScreen(navController = navController)
+            ManageScreen(navController = navController, viewModel = viewModel)
         }
 
         composable(Screen.About.route) {

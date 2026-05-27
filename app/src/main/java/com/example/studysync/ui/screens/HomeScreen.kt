@@ -21,8 +21,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.studysync.data.*
 import com.example.studysync.ui.theme.*
+import java.util.Calendar
 
 @Composable
 fun HomeScreen(
@@ -30,100 +32,353 @@ fun HomeScreen(
     exams: List<ExamReminder>,
     onNavigateToSchedule: () -> Unit,
     onNavigateToExams: () -> Unit,
+    onNavigateToManage: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedSession by remember { mutableStateOf<ClassSession?>(null) }
+    var selectedExam by remember { mutableStateOf<ExamReminder?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
-                QuickActionsRow(
-                    onScheduleClick = onNavigateToSchedule,
-                    onExamsClick = onNavigateToExams
-                )
+                HomeHeader()
             }
-            // ... (keep rest of items)
 
-        item {
-            SectionTitle(
-                title = "Lịch hôm nay",
-                subtitle = "Thứ 2 - Dự kiến",
-                icon = Icons.Default.CalendarToday,
-                onSeeAll = onNavigateToSchedule
-            )
-        }
-
-        if (sessions.isEmpty()) {
-            item { EmptyStateCard(message = "Hôm nay bạn không có lịch học!") }
-        } else {
-            items(sessions) { session ->
-                TodayClassCard(session = session)
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    QuickActionsRow(
+                        onScheduleClick = onNavigateToSchedule,
+                        onExamsClick = onNavigateToExams,
+                        onManageClick = onNavigateToManage,
+                        onAboutClick = onNavigateToAbout
+                    )
+                }
             }
-        }
 
-        item {
-            Spacer(Modifier.height(4.dp))
-            SectionTitle(
-                title = "Kỳ thi sắp tới",
-                subtitle = "${exams.size} kỳ thi",
-                icon = Icons.Default.Alarm,
-                onSeeAll = onNavigateToExams
-            )
-            Spacer(Modifier.height(4.dp))
-
-            if (exams.isEmpty()) {
-                EmptyStateCard(message = "Không có kỳ thi nào sắp tới.")
-            } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(exams) { exam ->
-                        UpcomingExamCard(exam = exam)
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SectionTitle(
+                        title = "Lịch hôm nay",
+                        subtitle = "Thứ 2 - Dự kiến",
+                        icon = Icons.Default.EventNote
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    if (sessions.isEmpty()) {
+                        EmptyStateCard(message = "Hôm nay bạn được nghỉ học!")
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            sessions.forEach { session ->
+                                TodayClassCard(
+                                    session = session,
+                                    onClick = {
+                                        selectedSession = session
+                                        selectedExam = null
+                                        showDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
+
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SectionTitle(
+                        title = "Kỳ thi sắp tới",
+                        subtitle = "Cần chuẩn bị ngay",
+                        icon = Icons.Default.Assignment
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    if (exams.isEmpty()) {
+                        EmptyStateCard(message = "Không có kỳ thi nào sắp tới.")
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(exams) { exam ->
+                                UpcomingExamCard(
+                                    exam = exam,
+                                    onClick = {
+                                        selectedExam = exam
+                                        selectedSession = null
+                                        showDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    StudyStatsSection()
+                }
+            }
+
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    MotivationCard()
+                }
+            }
+            
+            item {
+                Spacer(Modifier.height(16.dp))
+            }
         }
 
-        item {
-            Spacer(Modifier.height(4.dp))
-            StudyStatsSection()
+        if (showDialog) {
+            DetailDialog(
+                session = selectedSession,
+                exam = selectedExam,
+                onDismiss = { showDialog = false }
+            )
         }
     }
 }
+
+@Composable
+private fun DetailDialog(session: ClassSession?, exam: ExamReminder?, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                if (session != null) {
+                    Text(
+                        text = "Chi tiết buổi học",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    DetailItem(Icons.Default.Book, "Môn học", session.subject)
+                    DetailItem(Icons.Default.Person, "Giảng viên", session.teacher)
+                    DetailItem(Icons.Default.Room, "Phòng học", session.room)
+                    DetailItem(Icons.Default.AccessTime, "Thời gian", "${session.startTime} - ${session.endTime}")
+                } else if (exam != null) {
+                    Text(
+                        text = "Chi tiết kỳ thi",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ExamRed
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    DetailItem(Icons.Default.Assignment, "Môn thi", exam.subject)
+                    DetailItem(Icons.Default.Category, "Loại hình", exam.examType.label)
+                    DetailItem(Icons.Default.CalendarToday, "Ngày thi", exam.date)
+                    DetailItem(Icons.Default.AccessTime, "Giờ thi", exam.time)
+                    DetailItem(Icons.Default.Room, "Phòng thi", exam.room)
+                    if (exam.notes.isNotEmpty()) {
+                        DetailItem(Icons.Default.Notes, "Ghi chú", exam.notes)
+                    }
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Đóng")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailItem(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.padding(8.dp).size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun HomeHeader() {
+    val calendar = Calendar.getInstance()
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    val greeting = when(hour) {
+        in 0..11 -> "Chào buổi sáng!"
+        in 12..17 -> "Chào buổi chiều!"
+        else -> "Chào buổi tối!"
+    }
+    
+    val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
+    val month = calendar.get(Calendar.MONTH) + 1
+    val dateString = "Ngày $dayOfMonth tháng $month"
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Primary, Secondary)
+                )
+            )
+            .padding(24.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.AutoStories,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.1f),
+            modifier = Modifier.size(140.dp).align(Alignment.BottomEnd).offset(x = 20.dp, y = 20.dp)
+        )
+
+        Column(modifier = Modifier.align(Alignment.TopStart)) {
+            Spacer(Modifier.height(32.dp))
+            Text(
+                text = greeting,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+            Text(
+                text = "Bạn học hôm nay thế nào?",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(16.dp))
+            Surface(
+                color = Color.White.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.CalendarToday, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = dateString, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MotivationCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Lightbulb,
+                contentDescription = null,
+                tint = WarningAmber,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "Góc động lực",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "\"Hành trình vạn dặm bắt đầu từ một bước chân nhỏ. Hãy cố gắng học tập nhé!\"",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun QuickActionsRow(
     onScheduleClick: () -> Unit,
     onExamsClick: () -> Unit,
+    onManageClick: () -> Unit,
+    onAboutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        QuickActionCard(
-            title    = "Lịch học",
-            subtitle = "Xem thời khóa biểu",
-            icon     = Icons.AutoMirrored.Filled.MenuBook,
-            gradient = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED)),
-            modifier = Modifier.weight(1f),
-            onClick  = onScheduleClick
-        )
-        QuickActionCard(
-            title    = "Nhắc thi",
-            subtitle = "Quản lý kỳ thi",
-            icon     = Icons.Filled.Alarm,
-            gradient = listOf(Color(0xFF0891B2), Color(0xFF0E7490)),
-            modifier = Modifier.weight(1f),
-            onClick  = onExamsClick
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                title    = "Lịch học",
+                subtitle = "Xem khóa biểu",
+                icon     = Icons.AutoMirrored.Filled.MenuBook,
+                gradient = listOf(Color(0xFF4F46E5), Color(0xFF7C3AED)),
+                modifier = Modifier.weight(1f),
+                onClick  = onScheduleClick
+            )
+            QuickActionCard(
+                title    = "Nhắc thi",
+                subtitle = "Quản lý thi",
+                icon     = Icons.Filled.Alarm,
+                gradient = listOf(Color(0xFF0891B2), Color(0xFF0E7490)),
+                modifier = Modifier.weight(1f),
+                onClick  = onExamsClick
+            )
+        }
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                title    = "Cập nhật",
+                subtitle = "Thêm/Sửa/Xóa",
+                icon     = Icons.Filled.Settings,
+                gradient = listOf(Color(0xFF10B981), Color(0xFF059669)),
+                modifier = Modifier.weight(1f),
+                onClick  = onManageClick
+            )
+            QuickActionCard(
+                title    = "Thông tin",
+                subtitle = "Về ứng dụng",
+                icon     = Icons.Filled.Info,
+                gradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
+                modifier = Modifier.weight(1f),
+                onClick  = onAboutClick
+            )
+        }
     }
 }
 
@@ -169,7 +424,6 @@ private fun SectionTitle(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -179,14 +433,14 @@ private fun SectionTitle(
             Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        TextButton(onClick = onSeeAll) { Text("Xem tất cả", style = MaterialTheme.typography.labelMedium) }
     }
 }
 
 @Composable
-fun TodayClassCard(session: ClassSession, modifier: Modifier = Modifier) {
+fun TodayClassCard(session: ClassSession, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val color = SubjectColors[session.colorIndex % SubjectColors.size]
     Card(
+        onClick  = onClick,
         modifier = modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(12.dp),
         colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -221,7 +475,7 @@ fun TodayClassCard(session: ClassSession, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun UpcomingExamCard(exam: ExamReminder) {
+fun UpcomingExamCard(exam: ExamReminder, onClick: () -> Unit) {
     val color = SubjectColors[exam.colorIndex % SubjectColors.size]
     val urgentColor = when {
         exam.daysUntil <= 3  -> ExamRed
@@ -229,6 +483,7 @@ fun UpcomingExamCard(exam: ExamReminder) {
         else                 -> SuccessGreen
     }
     Card(
+        onClick   = onClick,
         modifier  = Modifier.width(180.dp),
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
