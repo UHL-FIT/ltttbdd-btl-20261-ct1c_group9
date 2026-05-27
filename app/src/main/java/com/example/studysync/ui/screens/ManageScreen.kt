@@ -1,59 +1,66 @@
 package com.example.studysync.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.studysync.data.*
 import com.example.studysync.ui.StudyViewModel
-import java.util.*
+import com.example.studysync.ui.theme.SubjectColors
+import kotlinx.coroutines.launch
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageScreen(navController: NavController, viewModel: StudyViewModel) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Lịch học", "Lịch thi")
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Thêm Môn Học", "Thêm Lịch Thi")
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Thêm thông tin mới", fontWeight = FontWeight.Bold) },
+                title = { Text("Quản Lý Nhập Liệu", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                }
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = { Text(title, fontWeight = FontWeight.SemiBold) }
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, fontWeight = FontWeight.SemiBold) },
+                        icon = {
+                            Icon(
+                                imageVector = if (index == 0) Icons.AutoMirrored.Filled.MenuBook else Icons.Default.Alarm,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     )
                 }
             }
@@ -62,17 +69,22 @@ fun ManageScreen(navController: NavController, viewModel: StudyViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (selectedTabIndex == 0) {
-                    SessionForm(onSave = { session ->
+                if (selectedTab == 0) {
+                    AddSessionForm(onSave = { session ->
                         viewModel.addSession(session)
-                        navController.popBackStack()
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Đã thêm môn học \"${session.subject}\"")
+                        }
                     })
                 } else {
-                    ExamForm(onSave = { exam ->
+                    AddExamForm(onSave = { exam ->
                         viewModel.addExam(exam)
-                        navController.popBackStack()
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Đã thêm lịch thi \"${exam.subject}\"")
+                        }
                     })
                 }
             }
@@ -80,132 +92,265 @@ fun ManageScreen(navController: NavController, viewModel: StudyViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SessionForm(onSave: (ClassSession) -> Unit) {
-    var subject by remember { mutableStateOf("") }
-    var teacher by remember { mutableStateOf("") }
-    var room by remember { mutableStateOf("") }
-    var startTime by remember { mutableStateOf("07:30") }
-    var endTime by remember { mutableStateOf("09:10") }
+private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
+    var subject     by remember { mutableStateOf("") }
+    var teacher     by remember { mutableStateOf("") }
+    var room        by remember { mutableStateOf("") }
+    var startTime   by remember { mutableStateOf("") }
+    var endTime     by remember { mutableStateOf("") }
     var selectedDay by remember { mutableStateOf(DayOfWeek.MONDAY) }
+    var colorIndex  by remember { mutableStateOf(0) }
+    var dayExpanded by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        OutlinedTextFieldWithIcon("Tên môn học", subject, Icons.Default.Book) { subject = it }
-        OutlinedTextFieldWithIcon("Giảng viên", teacher, Icons.Default.Person) { teacher = it }
-        OutlinedTextFieldWithIcon("Phòng học", room, Icons.Default.Room) { room = it }
-        
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextFieldWithIcon("Bắt đầu", startTime, Icons.Default.AccessTime, Modifier.weight(1f)) { startTime = it }
-            OutlinedTextFieldWithIcon("Kết thúc", endTime, Icons.Default.AccessTime, Modifier.weight(1f)) { endTime = it }
-        }
+    val isValid = subject.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()
 
-        Text("Chọn ngày trong tuần", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            DayOfWeek.values().forEach { day ->
-                FilterChip(
-                    selected = selectedDay == day,
-                    onClick = { selectedDay = day },
-                    label = { Text(day.displayVi) }
-                )
-            }
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FormSectionHeader(icon = Icons.AutoMirrored.Filled.MenuBook, title = "Thông tin môn học")
 
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = {
-                if (subject.isNotBlank()) {
-                    onSave(ClassSession(UUID.randomUUID().toString(), subject, teacher, room, startTime, endTime, selectedDay, (0..7).random()))
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            Icon(Icons.Default.Save, null)
-            Spacer(Modifier.width(8.dp))
-            Text("Lưu buổi học")
-        }
-    }
-}
+        OutlinedTextField(
+            value = subject, onValueChange = { subject = it },
+            label = { Text("Tên môn học *") },
+            leadingIcon = { Icon(Icons.Default.School, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        OutlinedTextField(
+            value = teacher, onValueChange = { teacher = it },
+            label = { Text("Giảng viên") },
+            leadingIcon = { Icon(Icons.Default.Person, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        OutlinedTextField(
+            value = room, onValueChange = { room = it },
+            label = { Text("Phòng học") },
+            leadingIcon = { Icon(Icons.Default.Room, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
 
-@Composable
-fun ExamForm(onSave: (ExamReminder) -> Unit) {
-    var subject by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("") }
-    var time by remember { mutableStateOf("") }
-    var room by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(ExamType.QUIZ) }
+        FormSectionHeader(icon = Icons.Default.Schedule, title = "Thời gian")
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        OutlinedTextFieldWithIcon("Tên môn thi", subject, Icons.Default.Assignment) { subject = it }
-        OutlinedTextFieldWithIcon("Ngày thi (VD: 25/05/2026)", date, Icons.Default.CalendarToday) { date = it }
-        OutlinedTextFieldWithIcon("Giờ thi", time, Icons.Default.AccessTime) { time = it }
-        OutlinedTextFieldWithIcon("Phòng thi", room, Icons.Default.Room) { room = it }
-        OutlinedTextFieldWithIcon("Ghi chú", notes, Icons.Default.Notes) { notes = it }
-
-        Text("Loại hình thi", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExamType.values().forEach { type ->
-                FilterChip(
-                    selected = selectedType == type,
-                    onClick = { selectedType = type },
-                    label = { Text(type.label) }
-                )
+            OutlinedTextField(
+                value = startTime, onValueChange = { startTime = it },
+                label = { Text("Giờ bắt đầu *") },
+                placeholder = { Text("07:30") },
+                modifier = Modifier.weight(1f), singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                value = endTime, onValueChange = { endTime = it },
+                label = { Text("Giờ kết thúc *") },
+                placeholder = { Text("09:10") },
+                modifier = Modifier.weight(1f), singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        ExposedDropdownMenuBox(expanded = dayExpanded, onExpandedChange = { dayExpanded = it }) {
+            OutlinedTextField(
+                value = selectedDay.displayVi,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Thứ trong tuần") },
+                leadingIcon = { Icon(Icons.Default.CalendarToday, null, Modifier.size(20.dp)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dayExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                shape = RoundedCornerShape(12.dp)
+            )
+            ExposedDropdownMenu(expanded = dayExpanded, onDismissRequest = { dayExpanded = false }) {
+                DayOfWeek.entries.forEach { day ->
+                    DropdownMenuItem(
+                        text = { Text(day.displayVi) },
+                        onClick = { selectedDay = day; dayExpanded = false }
+                    )
+                }
             }
         }
+
+        FormSectionHeader(icon = Icons.Default.Palette, title = "Màu sắc")
+        ColorPicker(selectedIndex = colorIndex, onSelect = { colorIndex = it })
+
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                onSave(
+                    ClassSession(
+                        id = UUID.randomUUID().toString(),
+                        subject = subject.trim(),
+                        teacher = teacher.trim(),
+                        room = room.trim(),
+                        startTime = startTime.trim(),
+                        endTime = endTime.trim(),
+                        dayOfWeek = selectedDay,
+                        colorIndex = colorIndex
+                    )
+                )
+                subject = ""; teacher = ""; room = ""; startTime = ""; endTime = ""
+                selectedDay = DayOfWeek.MONDAY; colorIndex = 0
+            },
+            enabled = isValid,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Save, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Lưu Môn Học", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
+    var subject      by remember { mutableStateOf("") }
+    var date         by remember { mutableStateOf("") }
+    var time         by remember { mutableStateOf("") }
+    var room         by remember { mutableStateOf("") }
+    var notes        by remember { mutableStateOf("") }
+    var daysUntil    by remember { mutableStateOf("") }
+    var examType     by remember { mutableStateOf(ExamType.MIDTERM) }
+    var colorIndex   by remember { mutableStateOf(0) }
+    var typeExpanded by remember { mutableStateOf(false) }
+
+    val isValid = subject.isNotBlank() && date.isNotBlank()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FormSectionHeader(icon = Icons.Default.Alarm, title = "Thông tin kỳ thi")
+
+        OutlinedTextField(
+            value = subject, onValueChange = { subject = it },
+            label = { Text("Tên môn thi *") },
+            leadingIcon = { Icon(Icons.Default.School, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = it }) {
+            OutlinedTextField(
+                value = examType.label,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Hình thức thi") },
+                leadingIcon = { Icon(Icons.Default.Assignment, null, Modifier.size(20.dp)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                shape = RoundedCornerShape(12.dp)
+            )
+            ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
+                ExamType.entries.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type.label) },
+                        onClick = { examType = type; typeExpanded = false }
+                    )
+                }
+            }
+        }
+
+        FormSectionHeader(icon = Icons.Default.Schedule, title = "Thời gian & Địa điểm")
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = date, onValueChange = { date = it },
+                label = { Text("Ngày thi *") },
+                placeholder = { Text("28/05/2026") },
+                modifier = Modifier.weight(1f), singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                value = time, onValueChange = { time = it },
+                label = { Text("Giờ thi") },
+                placeholder = { Text("07:30") },
+                modifier = Modifier.weight(1f), singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+        OutlinedTextField(
+            value = room, onValueChange = { room = it },
+            label = { Text("Phòng thi") },
+            leadingIcon = { Icon(Icons.Default.Room, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        OutlinedTextField(
+            value = daysUntil, onValueChange = { daysUntil = it.filter { c -> c.isDigit() } },
+            label = { Text("Số ngày còn lại") },
+            leadingIcon = { Icon(Icons.Default.HourglassBottom, null, Modifier.size(20.dp)) },
+            placeholder = { Text("7") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        OutlinedTextField(
+            value = notes, onValueChange = { notes = it },
+            label = { Text("Ghi chú") },
+            leadingIcon = { Icon(Icons.Default.Notes, null, Modifier.size(20.dp)) },
+            modifier = Modifier.fillMaxWidth(), maxLines = 3,
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        FormSectionHeader(icon = Icons.Default.Palette, title = "Màu sắc")
+        ColorPicker(selectedIndex = colorIndex, onSelect = { colorIndex = it })
 
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
-                if (subject.isNotBlank()) {
-                    onSave(ExamReminder(UUID.randomUUID().toString(), subject, selectedType, date, time, room, notes, (1..30).random(), (0..7).random()))
-                }
+                onSave(
+                    ExamReminder(
+                        id = UUID.randomUUID().toString(),
+                        subject = subject.trim(),
+                        examType = examType,
+                        date = date.trim(),
+                        time = time.trim(),
+                        room = room.trim(),
+                        notes = notes.trim(),
+                        daysUntil = daysUntil.toIntOrNull() ?: 0,
+                        colorIndex = colorIndex
+                    )
+                )
+                subject = ""; date = ""; time = ""; room = ""; notes = ""; daysUntil = ""
+                examType = ExamType.MIDTERM; colorIndex = 0
             },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(16.dp)
+            enabled = isValid,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.Save, null)
+            Icon(Icons.Default.Save, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Lưu lịch thi")
+            Text("Lưu Lịch Thi", fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-fun OutlinedTextFieldWithIcon(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    onValueChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        singleLine = true
-    )
+private fun FormSectionHeader(icon: ImageVector, title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(6.dp))
+        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(8.dp))
+        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FlowRow(
-    modifier: Modifier = Modifier,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.FlowRow(
-        modifier = modifier,
-        horizontalArrangement = horizontalArrangement,
-        content = { content() }
-    )
+private fun ColorPicker(selectedIndex: Int, onSelect: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SubjectColors.forEachIndexed { idx, color ->
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(color)
+                    .clickable { onSelect(idx) },
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedIndex == idx) {
+                    Icon(Icons.Default.Check, null, Modifier.size(16.dp), tint = Color.White)
+                }
+            }
+        }
+    }
 }
