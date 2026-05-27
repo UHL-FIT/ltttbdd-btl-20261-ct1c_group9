@@ -34,6 +34,7 @@ fun HomeScreen(
     onNavigateToExams: () -> Unit,
     onNavigateToManage: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToStats: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedSession by remember { mutableStateOf<ClassSession?>(null) }
@@ -122,7 +123,7 @@ fun HomeScreen(
 
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    StudyStatsSection()
+                    StudyStatsSection(onClick = onNavigateToStats)
                 }
             }
 
@@ -513,8 +514,9 @@ fun UpcomingExamCard(exam: ExamReminder, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StudyStatsSection(modifier: Modifier = Modifier) {
+private fun StudyStatsSection(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
+        onClick  = onClick,
         modifier = modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(16.dp),
         colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

@@ -16,6 +16,7 @@ sealed class Screen(val route: String) {
     object Exams : Screen("exams")
     object Manage : Screen("manage")
     object About : Screen("about")
+    object Stats : Screen("stats")
 }
 
 @Composable
@@ -49,12 +50,20 @@ fun StudySyncNavGraph(navController: NavHostController) {
                 onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                 onNavigateToExams = { navController.navigate(Screen.Exams.route) },
                 onNavigateToManage = { navController.navigate(Screen.Manage.route) },
-                onNavigateToAbout = { navController.navigate(Screen.About.route) }
+                onNavigateToAbout = { navController.navigate(Screen.About.route) },
+                onNavigateToStats = { navController.navigate(Screen.Stats.route) }
             )
         }
 
         composable(Screen.Schedule.route) {
-            TimetableScreen(navController = navController)
+            TimetableScreen(
+                sessions = sessions,
+                onAddSession = { viewModel.addSession(it) },
+                onDeleteSession = { id -> 
+                    sessions.find { it.id == id }?.let { viewModel.deleteSession(it) }
+                },
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(Screen.Exams.route) {
@@ -66,7 +75,15 @@ fun StudySyncNavGraph(navController: NavHostController) {
         }
 
         composable(Screen.About.route) {
-            AboutScreen(navController = navController)
+            AboutScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.Stats.route) {
+            StatisticScreen(
+                sessions = sessions,
+                exams = exams,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

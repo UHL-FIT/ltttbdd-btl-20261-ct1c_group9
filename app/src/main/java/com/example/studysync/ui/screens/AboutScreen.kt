@@ -31,11 +31,10 @@ data class TeamMember(
 )
 
 private val teamMembers = listOf(
-    TeamMember("Nguyễn Văn An",   "21110001", "Tech Lead",    0),
-    TeamMember("Trần Thị Bình",   "21110002", "UI/UX Designer", 1),
-    TeamMember("Lê Hoàng Cường",  "21110003", "Android Dev",  2),
-    TeamMember("Phạm Thị Dung",   "21110004", "Android Dev",  3),
-    TeamMember("Hoàng Văn Em",    "21110005", "Tester",       4),
+    TeamMember("Hoàng Trần Khánh Vinh",   "23DH201145", "TeamLeader",    0),
+    TeamMember("Vũ Gia Phong",   "23DH201133", "Android Dev", 1),
+    TeamMember("Lê Hoàng Hải",  "23DH201117", "Tester",  2),
+    TeamMember("Vũ Đăng Duy",   "23DH201109", "Android Dev",  3),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -162,7 +161,7 @@ private fun AppInfoCard() {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             AppInfoRow(icon = Icons.Default.Code,        label = "Nền tảng",    value = "Android (Jetpack Compose)")
             AppInfoRow(icon = Icons.Default.Palette,     label = "Giao diện",   value = "Material Design 3")
-            AppInfoRow(icon = Icons.Default.School,      label = "Môn học",     value = "Lập trình Android")
+            AppInfoRow(icon = Icons.Default.School,      label = "Môn học",     value = "Lập trình thiết bị di động")
             AppInfoRow(icon = Icons.Default.CalendarToday, label = "Năm học",   value = "2025 – 2026")
         }
     }
