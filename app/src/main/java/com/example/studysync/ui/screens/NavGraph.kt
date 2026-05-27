@@ -1,38 +1,56 @@
 package com.example.studysync.ui.screens
 
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.studysync.data.SampleData
+import com.example.studysync.data.*
 
 sealed class Screen(val route: String) {
-    object Home : Screen("home")
+    object Home     : Screen("home")
     object Schedule : Screen("schedule")
-    object Exams : Screen("exams")
+    object Exams    : Screen("exams")
+    object Stats    : Screen("stats")
 }
 
 @Composable
 fun StudySyncNavGraph(navController: NavHostController) {
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Home.route
-    ) {
+    // Shared mutable state across screens
+    var sessions by remember { mutableStateOf(SampleData.classSessions) }
+    var exams    by remember { mutableStateOf(SampleData.examReminders) }
+
+    NavHost(navController = navController, startDestination = Screen.Home.route) {
         composable(Screen.Home.route) {
             HomeScreen(
-                sessions = SampleData.todaySessions, // Đổ dữ liệu mẫu vào trang chủ
-                exams = SampleData.upcomingExams,     // Đổ dữ liệu mẫu vào trang chủ
+                sessions = sessions.filter { it.dayOfWeek == DayOfWeek.MONDAY },
+                exams    = exams.sortedBy { it.daysUntil }.take(3),
                 onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
-                onNavigateToExams = { navController.navigate(Screen.Exams.route) }
+                onNavigateToExams    = { navController.navigate(Screen.Exams.route) }
             )
         }
-
         composable(Screen.Schedule.route) {
-            // Mai bảo Coder cắt file ScheduleScreen gốc dán vào đây, tạm thời để trống
+            TimetableScreen(
+                sessions   = sessions,
+                onAddSession    = { sessions = sessions + it },
+                onDeleteSession = { id -> sessions = sessions.filter { it.id != id } },
+                onBack     = { navController.popBackStack() }
+            )
         }
-
         composable(Screen.Exams.route) {
-            // Mai bảo Coder cắt file ExamScreen gốc dán vào đây, tạm thời để trống
+            ExamScreen(
+                exams     = exams,
+                onAddExam    = { exams = exams + it },
+                onDeleteExam = { id -> exams = exams.filter { it.id != id } },
+                onViewStats  = { navController.navigate(Screen.Stats.route) },
+                onBack    = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Stats.route) {
+            StatisticScreen(
+                sessions = sessions,
+                exams    = exams,
+                onBack   = { navController.popBackStack() }
+            )
         }
     }
 }
