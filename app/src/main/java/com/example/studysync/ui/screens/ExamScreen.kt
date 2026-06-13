@@ -26,8 +26,7 @@ import com.example.studysync.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
-    val examList by viewModel.allExams.collectAsState()
+fun ExamScreen(navController: NavController, viewModel: StudyViewModel, liveExams: List<ExamReminder>) {
     var selectedExam by remember { mutableStateOf<ExamReminder?>(null) }
     var showDialog by remember { mutableStateOf(false) }
 
@@ -40,11 +39,6 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { navController.navigate(Screen.Stats.route) }) {
-                        Icon(Icons.Default.BarChart, contentDescription = "Thống kê")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
@@ -52,7 +46,7 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            if (examList.isEmpty()) {
+            if (liveExams.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Chưa có lịch thi nào được cập nhật", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -64,7 +58,7 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    items(examList) { exam ->
+                    items(liveExams) { exam ->
                         ExamItemCard(exam = exam, onClick = { 
                             selectedExam = exam
                             showDialog = true 
@@ -87,6 +81,19 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel) {
 @Composable
 fun ExamItemCard(exam: ExamReminder, onClick: () -> Unit) {
     val color = SubjectColors[exam.colorIndex % SubjectColors.size]
+    val urgentColor = when {
+        exam.daysUntil < 0   -> Color.Gray
+        exam.daysUntil <= 3  -> ExamRed
+        exam.daysUntil <= 7  -> WarningAmber
+        else                 -> SuccessGreen
+    }
+    
+    val statusText = when {
+        exam.daysUntil < 0 -> "Đã kết thúc"
+        exam.daysUntil == 0 -> "Hôm nay!"
+        else -> "Còn ${exam.daysUntil} ngày"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
@@ -115,7 +122,7 @@ fun ExamItemCard(exam: ExamReminder, onClick: () -> Unit) {
                     text = exam.subject,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = if (exam.daysUntil < 0) Color.Gray else MaterialTheme.colorScheme.onSurface
                 )
             }
             
@@ -123,19 +130,15 @@ fun ExamItemCard(exam: ExamReminder, onClick: () -> Unit) {
             
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 IconLabel(Icons.Default.CalendarToday, exam.date)
-                IconLabel(Icons.Default.AccessTime, exam.time)
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                IconLabel(Icons.Default.Room, exam.room)
-                Text(
-                    text = "Xem chi tiết",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Surface(shape = RoundedCornerShape(20.dp), color = urgentColor.copy(alpha = 0.12f)) {
+                    Text(
+                        text = statusText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = urgentColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

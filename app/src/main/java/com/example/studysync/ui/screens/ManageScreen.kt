@@ -8,7 +8,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,20 +24,23 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.studysync.data.*
 import com.example.studysync.ui.StudyViewModel
-import com.example.studysync.ui.theme.SubjectColors
+import com.example.studysync.ui.components.*
+import com.example.studysync.ui.theme.*
 import kotlinx.coroutines.launch
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageScreen(navController: NavController, viewModel: StudyViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Thêm Môn Học", "Thêm Lịch Thi")
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var dialogStatus by remember { mutableStateOf(true) }
+    var dialogMessage by remember { mutableStateOf("") }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Quản Lý Nhập Liệu", fontWeight = FontWeight.Bold) },
@@ -75,36 +80,91 @@ fun ManageScreen(navController: NavController, viewModel: StudyViewModel) {
                 if (selectedTab == 0) {
                     AddSessionForm(onSave = { session ->
                         viewModel.addSession(session)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Đã thêm môn học \"${session.subject}\"")
-                        }
+                        dialogStatus = true
+                        dialogMessage = "Đã thêm môn học \"${session.subject}\" thành công!"
+                        showStatusDialog = true
+                    }, onError = { msg ->
+                        dialogStatus = false
+                        dialogMessage = msg
+                        showStatusDialog = true
                     })
                 } else {
                     AddExamForm(onSave = { exam ->
                         viewModel.addExam(exam)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Đã thêm lịch thi \"${exam.subject}\"")
-                        }
+                        dialogStatus = true
+                        dialogMessage = "Đã thêm lịch thi \"${exam.subject}\" thành công!"
+                        showStatusDialog = true
+                    }, onError = { msg ->
+                        dialogStatus = false
+                        dialogMessage = msg
+                        showStatusDialog = true
                     })
                 }
             }
         }
+
+        if (showStatusDialog) {
+            StatusDialog(
+                isSuccess = dialogStatus,
+                message = dialogMessage,
+                onDismiss = { showStatusDialog = false }
+            )
+        }
+    }
+}
+
+private fun calculateDaysUntil(dateStr: String): Int? {
+    if (dateStr.length < 5) return null
+    return try {
+        val cleanDate = if (dateStr.endsWith("/")) dateStr.dropLast(1) else dateStr
+        val finalDateStr = if (cleanDate.length == 5) {
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+            "$cleanDate/$currentYear"
+        } else cleanDate
+
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        sdf.isLenient = false
+        
+        val examDate = sdf.parse(finalDateStr) ?: return null
+        val today = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val diff = examDate.time - today.time
+        (diff / (24 * 60 * 60 * 1000)).toInt()
+    } catch (e: Exception) {
+        null
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
+private fun AddSessionForm(onSave: (ClassSession) -> Unit, onError: (String) -> Unit) {
     var subject     by remember { mutableStateOf("") }
     var teacher     by remember { mutableStateOf("") }
     var room        by remember { mutableStateOf("") }
     var startTime   by remember { mutableStateOf("") }
     var endTime     by remember { mutableStateOf("") }
     var selectedDay by remember { mutableStateOf(DayOfWeek.MONDAY) }
-    var colorIndex  by remember { mutableStateOf(0) }
+    var colorIndex  by remember { mutableIntStateOf(0) }
     var dayExpanded by remember { mutableStateOf(false) }
 
-    val isValid = subject.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker   by remember { mutableStateOf(false) }
+
+    fun isTimeLogical(): Boolean {
+        if (startTime.length == 5 && endTime.length == 5) {
+            val startParts = startTime.split(":").map { it.toInt() }
+            val endParts = endTime.split(":").map { it.toInt() }
+            val startTotal = startParts[0] * 60 + startParts[1]
+            val endTotal = endParts[0] * 60 + endParts[1]
+            return startTotal < endTotal
+        }
+        return true
+    }
+
+    val isValid = subject.isNotBlank() && startTime.length == 5 && endTime.length == 5
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FormSectionHeader(icon = Icons.AutoMirrored.Filled.MenuBook, title = "Thông tin môn học")
@@ -135,18 +195,59 @@ private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = startTime, onValueChange = { startTime = it },
+                value = startTime, 
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("Giờ bắt đầu *") },
                 placeholder = { Text("07:30") },
-                modifier = Modifier.weight(1f), singleLine = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { showStartTimePicker = true },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(
-                value = endTime, onValueChange = { endTime = it },
+                value = endTime, 
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("Giờ kết thúc *") },
                 placeholder = { Text("09:10") },
-                modifier = Modifier.weight(1f), singleLine = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { showEndTimePicker = true },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        if (showStartTimePicker) {
+            TimePickerModal(
+                onTimeSelected = { h: Int, m: Int -> 
+                    startTime = "%02d:%02d".format(h, m)
+                    showStartTimePicker = false
+                },
+                onDismiss = { showStartTimePicker = false }
+            )
+        }
+        if (showEndTimePicker) {
+            TimePickerModal(
+                onTimeSelected = { h: Int, m: Int -> 
+                    endTime = "%02d:%02d".format(h, m)
+                    showEndTimePicker = false
+                },
+                onDismiss = { showEndTimePicker = false }
             )
         }
 
@@ -158,7 +259,7 @@ private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
                 label = { Text("Thứ trong tuần") },
                 leadingIcon = { Icon(Icons.Default.CalendarToday, null, Modifier.size(20.dp)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dayExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(expanded = dayExpanded, onDismissRequest = { dayExpanded = false }) {
@@ -174,9 +275,18 @@ private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
         FormSectionHeader(icon = Icons.Default.Palette, title = "Màu sắc")
         ColorPicker(selectedIndex = colorIndex, onSelect = { colorIndex = it })
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
+                if (!isTimeLogical()) {
+                    onError("Giờ kết thúc phải sau giờ bắt đầu!")
+                    return@Button
+                }
+                if (subject.any { !it.isLetterOrDigit() && !it.isWhitespace() && it != '-' && it != '_' }) {
+                    onError("Tên môn học chứa ký tự không hợp lệ!")
+                    return@Button
+                }
+
                 onSave(
                     ClassSession(
                         id = UUID.randomUUID().toString(),
@@ -205,18 +315,23 @@ private fun AddSessionForm(onSave: (ClassSession) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
+private fun AddExamForm(onSave: (ExamReminder) -> Unit, onError: (String) -> Unit) {
+    val currentDate = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()) }
     var subject      by remember { mutableStateOf("") }
-    var date         by remember { mutableStateOf("") }
+    var date         by remember { mutableStateOf(currentDate) }
     var time         by remember { mutableStateOf("") }
     var room         by remember { mutableStateOf("") }
     var notes        by remember { mutableStateOf("") }
-    var daysUntil    by remember { mutableStateOf("") }
     var examType     by remember { mutableStateOf(ExamType.MIDTERM) }
-    var colorIndex   by remember { mutableStateOf(0) }
+    var colorIndex   by remember { mutableIntStateOf(0) }
     var typeExpanded by remember { mutableStateOf(false) }
 
-    val isValid = subject.isNotBlank() && date.isNotBlank()
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val daysUntilResult = remember(date) { calculateDaysUntil(date) }
+    val isDateValid = date.isEmpty() || daysUntilResult != null
+    val isValid = subject.isNotBlank() && daysUntilResult != null && time.length == 5
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FormSectionHeader(icon = Icons.Default.Alarm, title = "Thông tin kỳ thi")
@@ -235,9 +350,9 @@ private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Hình thức thi") },
-                leadingIcon = { Icon(Icons.Default.Assignment, null, Modifier.size(20.dp)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Assignment, null, Modifier.size(20.dp)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
@@ -254,20 +369,91 @@ private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = date, onValueChange = { date = it },
+                value = date, 
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("Ngày thi *") },
-                placeholder = { Text("28/05/2026") },
-                modifier = Modifier.weight(1f), singleLine = true,
+                placeholder = { Text(currentDate) },
+                isError = !isDateValid,
+                modifier = Modifier
+                    .weight(1.5f)
+                    .clickable { showDatePicker = true },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = if (!isDateValid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = if (!isDateValid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = if (!isDateValid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(
-                value = time, onValueChange = { time = it },
+                value = time, 
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("Giờ thi") },
                 placeholder = { Text("07:30") },
-                modifier = Modifier.weight(1f), singleLine = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { showTimePicker = true },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 shape = RoundedCornerShape(12.dp)
             )
         }
+
+        if (showDatePicker) {
+            DatePickerModal(
+                onDateSelected = { millis ->
+                    millis?.let {
+                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        date = sdf.format(Date(it))
+                    }
+                    showDatePicker = false
+                },
+                onDismiss = { showDatePicker = false }
+            )
+        }
+        if (showTimePicker) {
+            TimePickerModal(
+                onTimeSelected = { h: Int, m: Int ->
+                    time = "%02d:%02d".format(h, m)
+                    showTimePicker = false
+                },
+                onDismiss = { showTimePicker = false }
+            )
+        }
+        
+        val displayDays = when {
+            date.isEmpty() -> "Chưa nhập ngày"
+            daysUntilResult == null -> "Ngày không tồn tại!"
+            daysUntilResult < 0 -> "Kỳ thi đã qua (${-daysUntilResult} ngày)"
+            else -> "Còn $daysUntilResult ngày nữa"
+        }
+
+        OutlinedTextField(
+            value = displayDays,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Trạng thái") },
+            leadingIcon = { 
+                Icon(
+                    if (daysUntilResult != null) Icons.Default.HourglassBottom else Icons.Default.ErrorOutline, 
+                    null, 
+                    tint = if (daysUntilResult != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                ) 
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedTextColor = if (daysUntilResult == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                focusedTextColor = if (daysUntilResult == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+        )
+
         OutlinedTextField(
             value = room, onValueChange = { room = it },
             label = { Text("Phòng thi") },
@@ -276,17 +462,9 @@ private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
             shape = RoundedCornerShape(12.dp)
         )
         OutlinedTextField(
-            value = daysUntil, onValueChange = { daysUntil = it.filter { c -> c.isDigit() } },
-            label = { Text("Số ngày còn lại") },
-            leadingIcon = { Icon(Icons.Default.HourglassBottom, null, Modifier.size(20.dp)) },
-            placeholder = { Text("7") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true,
-            shape = RoundedCornerShape(12.dp)
-        )
-        OutlinedTextField(
             value = notes, onValueChange = { notes = it },
             label = { Text("Ghi chú") },
-            leadingIcon = { Icon(Icons.Default.Notes, null, Modifier.size(20.dp)) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, null, Modifier.size(20.dp)) },
             modifier = Modifier.fillMaxWidth(), maxLines = 3,
             shape = RoundedCornerShape(12.dp)
         )
@@ -297,20 +475,29 @@ private fun AddExamForm(onSave: (ExamReminder) -> Unit) {
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
+                if (subject.any { !it.isLetterOrDigit() && !it.isWhitespace() && it != '-' && it != '_' }) {
+                    onError("Tên môn thi chứa ký tự không hợp lệ!")
+                    return@Button
+                }
+
+                val finalDate = if (date.length == 5) {
+                    "$date/${Calendar.getInstance().get(Calendar.YEAR)}"
+                } else date
+
                 onSave(
                     ExamReminder(
                         id = UUID.randomUUID().toString(),
                         subject = subject.trim(),
                         examType = examType,
-                        date = date.trim(),
+                        date = finalDate.trim(),
                         time = time.trim(),
                         room = room.trim(),
                         notes = notes.trim(),
-                        daysUntil = daysUntil.toIntOrNull() ?: 0,
+                        daysUntil = daysUntilResult ?: 0,
                         colorIndex = colorIndex
                     )
                 )
-                subject = ""; date = ""; time = ""; room = ""; notes = ""; daysUntil = ""
+                subject = ""; date = currentDate; time = ""; room = ""; notes = ""
                 examType = ExamType.MIDTERM; colorIndex = 0
             },
             enabled = isValid,

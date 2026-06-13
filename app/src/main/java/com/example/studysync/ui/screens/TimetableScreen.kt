@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.studysync.data.*
+import com.example.studysync.ui.components.StatusDialog
+import com.example.studysync.ui.components.TimePickerModal
 import com.example.studysync.ui.theme.SubjectColors
 import java.util.UUID
 
@@ -27,10 +29,14 @@ fun TimetableScreen(
     sessions: List<ClassSession>,
     onAddSession: (ClassSession) -> Unit,
     onDeleteSession: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedDay by remember { mutableStateOf(DayOfWeek.MONDAY) }
+    
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var dialogStatus by remember { mutableStateOf(true) }
+    var dialogMessage by remember { mutableStateOf("") }
 
     val sessionsByDay = DayOfWeek.entries.associateWith { day ->
         sessions.filter { it.dayOfWeek == day }.sortedBy { it.startTime }
@@ -43,11 +49,6 @@ fun TimetableScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Thêm lịch học")
                     }
                 }
             )
@@ -116,14 +117,31 @@ fun TimetableScreen(
                 }
             }
         }
+        
+        if (showStatusDialog) {
+            StatusDialog(
+                isSuccess = dialogStatus,
+                message = dialogMessage,
+                onDismiss = { showStatusDialog = false }
+            )
+        }
     }
 
     if (showAddDialog) {
         AddSessionDialog(
+            initialDay = selectedDay,
             onDismiss = { showAddDialog = false },
             onConfirm = { session ->
                 onAddSession(session)
+                dialogStatus = true
+                dialogMessage = "Đã thêm môn học thành công!"
+                showStatusDialog = true
                 showAddDialog = false
+            },
+            onError = { msg ->
+                dialogStatus = false
+                dialogMessage = msg
+                showStatusDialog = true
             }
         )
     }
@@ -188,19 +206,35 @@ private fun SessionCard(session: ClassSession, onDelete: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddSessionDialog(
+    initialDay: DayOfWeek = DayOfWeek.MONDAY,
     onDismiss: () -> Unit,
-    onConfirm: (ClassSession) -> Unit
+    onConfirm: (ClassSession) -> Unit,
+    onError: (String) -> Unit
 ) {
     var subject   by remember { mutableStateOf("") }
     var teacher   by remember { mutableStateOf("") }
     var room      by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("") }
     var endTime   by remember { mutableStateOf("") }
-    var selectedDay by remember { mutableStateOf(DayOfWeek.MONDAY) }
-    var colorIndex  by remember { mutableStateOf(0) }
+    var selectedDay by remember { mutableStateOf(initialDay) }
+    var colorIndex  by remember { mutableIntStateOf(0) }
     var dayExpanded by remember { mutableStateOf(false) }
 
-    val isValid = subject.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker   by remember { mutableStateOf(false) }
+
+    fun isTimeLogical(): Boolean {
+        if (startTime.length == 5 && endTime.length == 5) {
+            val startParts = startTime.split(":").map { it.toInt() }
+            val endParts = endTime.split(":").map { it.toInt() }
+            val startTotal = startParts[0] * 60 + startParts[1]
+            val endTotal = endParts[0] * 60 + endParts[1]
+            return startTotal < endTotal
+        }
+        return true
+    }
+
+    val isValid = subject.isNotBlank() && startTime.length == 5 && endTime.length == 5
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -224,16 +258,57 @@ private fun AddSessionDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = startTime, onValueChange = { startTime = it },
-                        label = { Text("Giờ bắt đầu *") },
+                        value = startTime, 
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Giờ bắt đầu") },
                         placeholder = { Text("07:30") },
-                        modifier = Modifier.weight(1f), singleLine = true
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showStartTimePicker = true },
+                        enabled = false,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                     OutlinedTextField(
-                        value = endTime, onValueChange = { endTime = it },
-                        label = { Text("Giờ kết thúc *") },
+                        value = endTime, 
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Giờ kết thúc") },
                         placeholder = { Text("09:10") },
-                        modifier = Modifier.weight(1f), singleLine = true
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showEndTimePicker = true },
+                        enabled = false,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+
+                if (showStartTimePicker) {
+                    TimePickerModal(
+                        onTimeSelected = { h: Int, m: Int -> 
+                            startTime = "%02d:%02d".format(h, m)
+                            showStartTimePicker = false
+                        },
+                        onDismiss = { showStartTimePicker = false }
+                    )
+                }
+                if (showEndTimePicker) {
+                    TimePickerModal(
+                        onTimeSelected = { h: Int, m: Int -> 
+                            endTime = "%02d:%02d".format(h, m)
+                            showEndTimePicker = false
+                        },
+                        onDismiss = { showEndTimePicker = false }
                     )
                 }
                 // Day of week dropdown
@@ -244,7 +319,7 @@ private fun AddSessionDialog(
                         readOnly = true,
                         label = { Text("Thứ trong tuần") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dayExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(expanded = dayExpanded, onDismissRequest = { dayExpanded = false }) {
                         DayOfWeek.entries.forEach { day ->
@@ -278,6 +353,15 @@ private fun AddSessionDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    if (!isTimeLogical()) {
+                        onError("Giờ kết thúc phải sau giờ bắt đầu!")
+                        return@Button
+                    }
+                    if (subject.any { !it.isLetterOrDigit() && !it.isWhitespace() && it != '-' && it != '_' }) {
+                        onError("Tên môn học chứa ký tự không hợp lệ!")
+                        return@Button
+                    }
+
                     onConfirm(
                         ClassSession(
                             id = UUID.randomUUID().toString(),
