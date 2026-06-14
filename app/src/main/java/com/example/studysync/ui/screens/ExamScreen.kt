@@ -22,13 +22,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.studysync.data.*
 import com.example.studysync.ui.StudyViewModel
+import com.example.studysync.ui.components.*
 import com.example.studysync.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExamScreen(navController: NavController, viewModel: StudyViewModel, liveExams: List<ExamReminder>) {
     var selectedExam by remember { mutableStateOf<ExamReminder?>(null) }
-    var showDialog by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var dialogStatus by remember { mutableStateOf(true) }
+    var dialogMessage by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -61,17 +67,49 @@ fun ExamScreen(navController: NavController, viewModel: StudyViewModel, liveExam
                     items(liveExams) { exam ->
                         ExamItemCard(exam = exam, onClick = { 
                             selectedExam = exam
-                            showDialog = true 
+                            showDetailDialog = true 
                         })
                     }
                 }
             }
 
-            if (showDialog && selectedExam != null) {
+            if (showDetailDialog && selectedExam != null) {
                 ExamDetailDialog(
                     exam = selectedExam!!, 
                     viewModel = viewModel,
-                    onDismiss = { showDialog = false }
+                    onDismiss = { showDetailDialog = false },
+                    onEdit = {
+                        showDetailDialog = false
+                        showEditDialog = true
+                    }
+                )
+            }
+
+            if (showEditDialog && selectedExam != null) {
+                ExamFormDialog(
+                    exam = selectedExam,
+                    onDismiss = { showEditDialog = false },
+                    onConfirm = { updatedExam ->
+                        viewModel.addExam(updatedExam) // Room REPLACE updates
+                        dialogStatus = true
+                        dialogMessage = "Đã cập nhật lịch thi thành công!"
+                        showStatusDialog = true
+                        showEditDialog = false
+                        selectedExam = null
+                    },
+                    onError = { msg ->
+                        dialogStatus = false
+                        dialogMessage = msg
+                        showStatusDialog = true
+                    }
+                )
+            }
+
+            if (showStatusDialog) {
+                StatusDialog(
+                    isSuccess = dialogStatus,
+                    message = dialogMessage,
+                    onDismiss = { showStatusDialog = false }
                 )
             }
         }
@@ -154,7 +192,12 @@ private fun IconLabel(icon: ImageVector, text: String) {
 }
 
 @Composable
-fun ExamDetailDialog(exam: ExamReminder, viewModel: StudyViewModel, onDismiss: () -> Unit) {
+fun ExamDetailDialog(
+    exam: ExamReminder, 
+    viewModel: StudyViewModel, 
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit
+) {
     val color = SubjectColors[exam.colorIndex % SubjectColors.size]
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -164,17 +207,28 @@ fun ExamDetailDialog(exam: ExamReminder, viewModel: StudyViewModel, onDismiss: (
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = exam.subject,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-                Text(
-                    text = exam.examType.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = exam.subject,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = color
+                        )
+                        Text(
+                            text = exam.examType.label,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 
                 Spacer(Modifier.height(20.dp))
                 HorizontalDivider(modifier = Modifier.alpha(0.1f))

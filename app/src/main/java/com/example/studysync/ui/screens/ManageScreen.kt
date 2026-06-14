@@ -286,6 +286,10 @@ private fun AddSessionForm(onSave: (ClassSession) -> Unit, onError: (String) -> 
                     onError("Tên môn học chứa ký tự không hợp lệ!")
                     return@Button
                 }
+                if (teacher.isNotBlank() && teacher.any { !it.isLetter() && !it.isWhitespace() && it != '.' }) {
+                    onError("Tên giảng viên chỉ được chứa chữ cái và dấu chấm!")
+                    return@Button
+                }
 
                 onSave(
                     ClassSession(
@@ -511,33 +515,3 @@ private fun AddExamForm(onSave: (ExamReminder) -> Unit, onError: (String) -> Uni
     }
 }
 
-@Composable
-private fun FormSectionHeader(icon: ImageVector, title: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(6.dp))
-        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(8.dp))
-        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    }
-}
-
-@Composable
-private fun ColorPicker(selectedIndex: Int, onSelect: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SubjectColors.forEachIndexed { idx, color ->
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(color)
-                    .clickable { onSelect(idx) },
-                contentAlignment = Alignment.Center
-            ) {
-                if (selectedIndex == idx) {
-                    Icon(Icons.Default.Check, null, Modifier.size(16.dp), tint = Color.White)
-                }
-            }
-        }
-    }
-}
