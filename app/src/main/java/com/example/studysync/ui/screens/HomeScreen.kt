@@ -321,7 +321,7 @@ private fun QuickActionsRow(onScheduleClick: () -> Unit, onExamsClick: () -> Uni
             QuickActionCard("Nhắc thi", "Quản lý thi", Icons.Filled.Alarm, listOf(Color(0xFF0891B2), Color(0xFF0E7490)), Modifier.weight(1f), onExamsClick)
         }
         Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickActionCard("Cập nhật", "Thêm/Sửa/Xóa", Icons.Filled.Settings, listOf(Color(0xFF10B981), Color(0xFF059669)), Modifier.weight(1f), onManageClick)
+            QuickActionCard("Nhập liệu", "Thêm môn & lịch thi", Icons.Filled.AddCircle, listOf(Color(0xFF10B981), Color(0xFF059669)), Modifier.weight(1f), onManageClick)
             QuickActionCard("Thông tin", "Về ứng dụng", Icons.Filled.Info, listOf(Color(0xFFF59E0B), Color(0xFFD97706)), Modifier.weight(1f), onAboutClick)
         }
     }
