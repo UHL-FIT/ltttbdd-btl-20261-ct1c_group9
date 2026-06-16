@@ -32,6 +32,8 @@ import java.util.Calendar
 fun HomeScreen(
     sessions: List<ClassSession>,
     exams: List<ExamReminder>,
+    isDarkMode: Boolean,
+    onThemeToggle: (Boolean) -> Unit,
     onNavigateToSchedule: () -> Unit,
     onNavigateToExams: () -> Unit,
     onNavigateToManage: () -> Unit,
@@ -74,7 +76,12 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            item { HomeHeader() }
+            item { 
+                HomeHeader(
+                    isDarkMode = isDarkMode,
+                    onThemeToggle = onThemeToggle
+                ) 
+            }
 
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -233,7 +240,10 @@ private fun DetailItem(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
-private fun HomeHeader() {
+private fun HomeHeader(
+    isDarkMode: Boolean,
+    onThemeToggle: (Boolean) -> Unit
+) {
     val calendar = Calendar.getInstance()
     val hour = calendar.get(Calendar.HOUR_OF_DAY)
     val greeting = when(hour) {
@@ -244,10 +254,35 @@ private fun HomeHeader() {
     val dateString = "Ngày ${calendar.get(Calendar.DAY_OF_MONTH)} tháng ${calendar.get(Calendar.MONTH) + 1}"
 
     Box(
-        modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+        modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
             .background(Brush.verticalGradient(listOf(Primary, Secondary))).padding(24.dp)
     ) {
         Icon(Icons.Default.AutoStories, null, tint = Color.White.copy(alpha = 0.1f), modifier = Modifier.size(140.dp).align(Alignment.BottomEnd).offset(x = 20.dp, y = 20.dp))
+        
+        // Theme Switch
+        Row(
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = isDarkMode,
+                onCheckedChange = onThemeToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color.White.copy(alpha = 0.5f),
+                    uncheckedThumbColor = Color.White.copy(alpha = 0.7f),
+                    uncheckedTrackColor = Color.Black.copy(alpha = 0.2f)
+                )
+            )
+        }
+
         Column(modifier = Modifier.align(Alignment.TopStart)) {
             Spacer(Modifier.height(32.dp))
             Text(text = greeting, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))

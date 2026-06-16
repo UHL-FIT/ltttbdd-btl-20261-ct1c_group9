@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.studysync.data.ExamReminder
 import com.example.studysync.ui.StudyViewModel
+import com.example.studysync.ui.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,10 +41,14 @@ fun getLiveDaysUntil(dateStr: String): Int {
 }
 
 @Composable
-fun StudySyncNavGraph(navController: NavHostController) {
-    val viewModel: StudyViewModel = viewModel()
+fun StudySyncNavGraph(
+    navController: NavHostController,
+    mainViewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)
+) {
+    val viewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
     val sessions by viewModel.allSessions.collectAsState()
     val exams by viewModel.allExams.collectAsState()
+    val isDarkMode by mainViewModel.isDarkMode.collectAsState()
 
     NavHost(
         navController = navController,
@@ -70,6 +75,8 @@ fun StudySyncNavGraph(navController: NavHostController) {
             HomeScreen(
                 sessions = todaySessions,
                 exams = upcomingExams,
+                isDarkMode = isDarkMode,
+                onThemeToggle = { targetDarkMode -> mainViewModel.toggleTheme(targetDarkMode) },
                 onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                 onNavigateToExams = { navController.navigate(Screen.Exams.route) },
                 onNavigateToManage = { navController.navigate(Screen.Manage.route) },
